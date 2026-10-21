@@ -1,38 +1,39 @@
 name: Auto Fetch SC-Depth Dataset
 
 on:
-  workflow_dispatch: # 允许你在网页上一键点击运行
+  workflow_dispatch: # 手动点击运行
 
 jobs:
   download_and_upload:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # 给予写入 Release 的权限
+      contents: write
 
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Download via Cloud Link
+    - name: Download via OneDrive API Link
       run: |
         mkdir -p ./dataset_download
         cd ./dataset_download
         
-        echo "海外服务器正在模拟浏览器下载..."
-        # 1. 尝试直接请求官方的短链，并强制跟随重定向与伪装 User-Agent
-        # 2. 如果文件太大，OneDrive 会有确认页面。我们使用 -L 和 --cookies 确保一次性拿到真实流
-        curl -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-             -o sc_depth_dataset.zip \
-             "https://1drv.ms"
-             
-        echo "下载尝试完成。当前文件大小："
-        ls -lh
+        echo "正在使用开源社区 OneDrive 直链接口进行强制拖取..."
+        
+        # 这一步通过公开的转换服务，直接把你的短链转化为能直接吐出数据流的地址
+        # -L 强制追踪所有重定向，--retry 5 网络波动重试
+        curl -L --retry 5 -o sc_depth_dataset.zip "https://api.moe"
+        
+        echo "======================================"
+        echo "下载尝试完成！正在验证文件是否真实存在："
+        ls -lh sc_depth_dataset.zip
+        echo "======================================"
 
     - name: Upload Dataset to GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v3.0.0-sc-depth
-        name: SC-Depth Preprocessed Dataset
+        tag_name: v4.0.0-sc-depth
+        name: SC-Depth Preprocessed Dataset Fixed
         draft: false
         prerelease: false
         files: ./dataset_download/sc_depth_dataset.zip
