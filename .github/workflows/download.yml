@@ -9,23 +9,30 @@ jobs:
     - name: Create output dir
       run: mkdir -p out
 
-    - name: Download via onedrive.live.com/download
+    - name: Download via primary URL
       run: |
         curl -L --fail --globoff -o out/dataset.bin \
           "https://onedrive.live.com/download?resid=36712431A95E7A25%213265&e=RxOheF" \
-          --user-agent "Mozilla/5.0"
-        echo "---- file type ----"
-        file out/dataset.bin
+          --user-agent "Mozilla/5.0" || true
+        echo "primary attempt done:"
         ls -lh out
 
-    - name: If empty/HTML, try original URL with download=1
-      if: failure() || ! -s out/dataset.bin || file out/dataset.bin | grep -qi html
+    - name: Check and fallback
       run: |
-        curl -L --fail --globoff -o out/dataset.zip \
-          "https://onedrive.live.com/:u:/g/personal/36712431A95E7A25/s!AiV6XqkxJHE2mUFwH6FrHGCuh_y6?resid=36712431A95E7A25%213265&e=RxOheF&download=1" \
-          --user-agent "Mozilla/5.0"
-        file out/dataset.zip
+        file_type=$(file -b out/dataset.bin 2>/dev/null || echo "not found")
+        echo "Type: $file_type"
+        if [ -s out/dataset.bin ] && ! echo "$file_type" | grep -qi html; then
+          echo "Good binary found, no fallback needed."
+        else
+          echo "Primary failed or returned HTML, trying fallback URL..."
+          rm -f out/dataset.bin
+          curl -L --fail --globoff -o out/dataset.zip \
+            "https://onedrive.live.com/:u:/g/personal/36712431A95E7A25/s!AiV6XqkxJHE2mUFwH6FrHGCuh_y6?resid=36712431A95E7A25%213265&e=RxOheF&download=1" \
+            --user-agent "Mozilla/5.0"
+        fi
+        echo "Final files:"
         ls -lh out
+        file out/*
 
     - name: Upload to Release
       uses: softprops/action-gh-release@v2
