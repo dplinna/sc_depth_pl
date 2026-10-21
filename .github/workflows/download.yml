@@ -1,0 +1,40 @@
+name: Auto Fetch SC-Depth Dataset
+
+on:
+  workflow_dispatch: # 允许你在网页上一键点击运行
+
+jobs:
+  download_and_upload:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 给予写入 Release 的权限
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Download via Cloud Link
+      run: |
+        mkdir -p ./dataset_download
+        cd ./dataset_download
+        
+        echo "海外服务器正在模拟浏览器下载..."
+        # 1. 尝试直接请求官方的短链，并强制跟随重定向与伪装 User-Agent
+        # 2. 如果文件太大，OneDrive 会有确认页面。我们使用 -L 和 --cookies 确保一次性拿到真实流
+        curl -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+             -o sc_depth_dataset.zip \
+             "https://1drv.ms"
+             
+        echo "下载尝试完成。当前文件大小："
+        ls -lh
+
+    - name: Upload Dataset to GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v3.0.0-sc-depth
+        name: SC-Depth Preprocessed Dataset
+        draft: false
+        prerelease: false
+        files: ./dataset_download/sc_depth_dataset.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
