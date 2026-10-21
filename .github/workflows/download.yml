@@ -1,89 +1,74 @@
-name: Pure Browser Automation Downloader
+name: OneDrive Aria2 Adv Downloader
 
 on:
-  workflow_dispatch: # 手动一键运行
+  workflow_dispatch: # 支持网页端一键点击运行
 
 jobs:
-  bypass_and_download:
+  aria2_download:
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-    - name: Checkout Code
+    # 1. 签出当前的 SC-Depth 仓库
+    - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
+    # 2. 安装系统级 aria2 下载引擎
+    - name: Install aria2 System Package
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y aria2
 
-    - name: Install Puppeteer
-      run: npm install puppeteer
+    # 3. 按照你提供的关键点：后台启动 aria2 RPC 服务
+    - name: Start Aria2 RPC Daemon
+      run: |
+        aria2c --enable-rpc --rpc-listen-all=true --rpc-allow-origin-all -D -d ./dataset_download
+        sleep 3 # 等待服务完全唤醒
 
-    - name: Run Headless Browser to Catch Stream
+    # 4. 克隆你推荐的第三方开源工具并安装基础依赖
+    - name: Clone Tool and Install Dependencies
+      run: |
+        git clone https://github.com/gaowanliang/OneDriveShareLinkPushAria2.git tool_src
+        pip install requests pyppeteer
+
+    # 5. 顺藤摸瓜：运行脚本解析你的原装链接并推送到后台本地的 aria2
+    - name: Parse Link and Push to Aria2
       run: |
         mkdir -p ./dataset_download
+        cd tool_src
         
-        # 编写一个自动化脚本，让海外服务器真的像人一样打开网页并拦截真实的底层下载流
-        cat << 'EOF' > spider.js
-        const puppeteer = require('puppeteer');
-        const fs = require('fs');
+        # 使用工具的无密码 main.py 逻辑进行强力击穿与下载
+        # 脚本会自动把解析到的真实数据文件无损灌入刚刚启动的 aria2 守护进程中
+        python main.py "https://1drv.ms" --download
+        
+        echo "正在等待多线程下载流安全落盘..."
+        # 循环等待，直到文件夹内没有 .aria2 临时后缀文件，代表下载彻底结束
+        while ls ../dataset_download/*.aria2 >/dev/null 2>&1; do
+            echo "数据包正在高速下载中..."
+            sleep 15
+        done
+        cd ..
 
-        (async () => {
-            const browser = await puppeteer.launch({
-                headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox']
-            });
-            const page = await browser.newPage();
-            
-            console.log('海外浏览器正在启动并顺着短链点入目标页面...');
-            
-            // 监听所有的网络请求，一旦发现包含真实数据流的底层连接，立刻捕捉它
-            page.on('request', request => {
-                const url = request.url();
-                if (url.includes('download.aspx') || url.includes('://1drv.com') || url.includes('downloadUrl')) {
-                    console.log('🎯 成功在幕后捕获物理流终极直链:', url);
-                    fs.writeFileSync('target_link.txt', url);
-                }
-            });
-
-            // 顺着你的短链接去敲门
-            await page.goto('https://1drv.ms', {
-                waitUntil: 'networkidle2',
-                timeout: 60000
-            });
-
-            await browser.close();
-        })();
-        EOF
-
-        node spider.js
-
-        # 检查是否成功捕捉到直链，并使用流式工具以高达数百兆的速度拉取真实物理包
-        if [ -f target_link.txt ]; then
-            REAL_URL=$(cat target_link.txt)
-            echo "正在全速拉取真实的物理数据压缩包..."
-            curl -L -A "Mozilla/5.0" --retry 5 -o ./dataset_download/sc_depth_dataset.zip "$REAL_URL"
-        else
-            echo "未捕获到高级直链，启动二级备用方案顺藤摸瓜..."
-            FINAL_REDIRECT=$(curl -sIL -o /dev/null -w %{url_effective} "https://1drv.ms")
-            BACKUP_URL="${FINAL_REDIRECT/\?/\?download=1&}"
-            curl -L -A "Mozilla/5.0" --retry 5 -o ./dataset_download/sc_depth_dataset.zip "$BACKUP_URL"
-        fi
-
+    # 6. 对下载完成的文件进行压缩打包和体积校验
+    - name: Bundle and Verify Dataset
+      run: |
         echo "======================================"
-        echo "正在校验最终下载包大小（如果显示为几M或者几个G则大功告成）："
-        ls -lh ./dataset_download/sc_depth_dataset.zip
+        echo "正在校验由 Aria2 拖下来的真实原始物理文件："
+        ls -lh ./dataset_download/
         echo "======================================"
+        
+        # 将下载下来的真实目录进行正规 zip 打包
+        zip -q -r sc_depth_aria2_package.zip ./dataset_download/*
 
-    - name: Upload Real Dataset to GitHub Release
+    # 7. 将现场由 Aria2 攻克的压缩包上传到 Release
+    - name: Upload Finished Dataset to GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v8.0.0-final-pass
-        name: SC-Depth Preprocessed Dataset (Browser Verified)
+        tag_name: v11.0.0-aria2-pass
+        name: SC-Depth Preprocessed Dataset (Aria2 Cracked)
         draft: false
         prerelease: false
-        files: ./dataset_download/sc_depth_dataset.zip
+        files: sc_depth_aria2_package.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
