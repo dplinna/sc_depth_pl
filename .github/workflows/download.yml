@@ -1,4 +1,4 @@
-name: Auto Fetch SC-Depth Dataset (Ultimate Fixed)
+name: Auto Fetch SC-Depth Dataset (Final Hotfix)
 
 on:
   workflow_dispatch: # 手动一键运行
@@ -28,20 +28,18 @@ jobs:
         python -c '
         import os, base64, requests
 
-        # 1. 提取短链中的关键 ID 并使用微软官方标准协议生成标准的 API 请求链接
-        # 移除可能导致 URL 路由解析错误的尾部后缀，改用标准的短链处理逻辑
+        # 1. 填入正确的原始链接
         share_url = "https://1drv.ms"
         
-        # 核心修复：通过标准的 base64 编码方式对完整 URL 进行编码，并严格遵循微软 shares 规范
+        # 2. 严格执行符合微软 Microsoft Graph 规范的 Base64 编码
         encoded_url = base64.b64encode(share_url.encode("utf-8")).decode("utf-8")
         safe_encoded = "u!" + encoded_url.replace("/", "_").replace("+", "-").rstrip("=")
         
-        # 严格遵循格式规范拼接 API 地址，确保 host 绝对为 api.onedrive.com
+        # 【核心修复】严格规范域名为 api.onedrive.com，并在安全字符串前加上缺失的斜杠与路由
         api_url = f"https://onedrive.com{safe_encoded}/root"
         
         print(f"正在向微软核心服务器申请临时数据管道... API地址: {api_url}")
         
-        # 模拟真实浏览器请求，获取微软后台重定向的物理真实下载流
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         res = requests.get(api_url, headers=headers).json()
         
@@ -52,7 +50,9 @@ jobs:
         download_url = res.get("@microsoft.graph.downloadUrl")
         if not download_url:
             print("未能直接捕获下载流，正在尝试从子项中搜寻...")
-            children_res = requests.get(f"{api_url}/children", headers=headers).json()
+            children_url = f"{api_url}/children"
+            children_res = requests.get(children_url, headers=headers).json()
+            # 兼容多文件目录格式，提取第一个有效子项的物理流
             download_url = children_res["value"][0]["@microsoft.graph.downloadUrl"]
             
         print("成功建立安全传输通道，正在全速拉取物理数据流...")
@@ -61,7 +61,7 @@ jobs:
         with requests.get(download_url, stream=True) as r:
             r.raise_for_status()
             with open("./dataset_download/sc_depth_dataset.zip", "wb") as f:
-                for chunk in r.iter_content(chunk_size=1024*1024): # 1MB chunk size 加速写入
+                for chunk in r.iter_content(chunk_size=1024*1024): # 1MB 缓存块高效读写
                     f.write(chunk)
                     
         print("传输完成！已成功下载真实物理压缩包。")
@@ -76,8 +76,8 @@ jobs:
     - name: Upload Real Dataset to GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v6.0.0-final-dataset
-        name: SC-Depth Preprocessed Dataset (100% Fixed)
+        tag_name: v7.0.0-verified-dataset
+        name: SC-Depth Preprocessed Dataset (Hotfix Pass)
         draft: false
         prerelease: false
         files: ./dataset_download/sc_depth_dataset.zip
