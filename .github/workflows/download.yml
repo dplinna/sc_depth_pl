@@ -1,74 +1,45 @@
-name: OneDrive Aria2 Adv Downloader
+name: OneDrive Personal Crack Downloader
 
 on:
   workflow_dispatch: # 支持网页端一键点击运行
 
 jobs:
-  aria2_download:
+  crack_download:
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-    # 1. 签出当前的 SC-Depth 仓库
-    - name: Checkout Repository
+    - name: Checkout Code
       uses: actions/checkout@v4
 
-    # 2. 安装系统级 aria2 下载引擎
-    - name: Install aria2 System Package
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y aria2
-
-    # 3. 按照你提供的关键点：后台启动 aria2 RPC 服务
-    - name: Start Aria2 RPC Daemon
-      run: |
-        aria2c --enable-rpc --rpc-listen-all=true --rpc-allow-origin-all -D -d ./dataset_download
-        sleep 3 # 等待服务完全唤醒
-
-    # 4. 克隆你推荐的第三方开源工具并安装基础依赖
-    - name: Clone Tool and Install Dependencies
-      run: |
-        git clone https://github.com/gaowanliang/OneDriveShareLinkPushAria2.git tool_src
-        pip install requests pyppeteer
-
-    # 5. 顺藤摸瓜：运行脚本解析你的原装链接并推送到后台本地的 aria2
-    - name: Parse Link and Push to Aria2
+    - name: Download Real Physical Stream
       run: |
         mkdir -p ./dataset_download
-        cd tool_src
+        cd ./dataset_download
         
-        # 使用工具的无密码 main.py 逻辑进行强力击穿与下载
-        # 脚本会自动把解析到的真实数据文件无损灌入刚刚启动的 aria2 守护进程中
-        python main.py "https://1drv.ms" --download
+        echo "正在调用由 F12 拦截到的微软个人版专属直连管道..."
         
-        echo "正在等待多线程下载流安全落盘..."
-        # 循环等待，直到文件夹内没有 .aria2 临时后缀文件，代表下载彻底结束
-        while ls ../dataset_download/*.aria2 >/dev/null 2>&1; do
-            echo "数据包正在高速下载中..."
-            sleep 15
-        done
+        # 核心改变：直接请求微软个人版底层不带任何反爬验证的实际内容吐出接口（/root/content）
+        # 使用 -L 允许强力跟踪重定向，--retry 5 应对网络波动
+        curl -L --retry 5 -A "Mozilla/5.0" \
+          -o sc_depth_dataset.zip \
+          "https://onedrive.com"
+        
+        echo "======================================"
+        echo "下载尝试完成！正在对物理文件进行大小与格式校验："
+        ls -lh sc_depth_dataset.zip
+        file sc_depth_dataset.zip
+        echo "======================================"
         cd ..
 
-    # 6. 对下载完成的文件进行压缩打包和体积校验
-    - name: Bundle and Verify Dataset
-      run: |
-        echo "======================================"
-        echo "正在校验由 Aria2 拖下来的真实原始物理文件："
-        ls -lh ./dataset_download/
-        echo "======================================"
-        
-        # 将下载下来的真实目录进行正规 zip 打包
-        zip -q -r sc_depth_aria2_package.zip ./dataset_download/*
-
-    # 7. 将现场由 Aria2 攻克的压缩包上传到 Release
-    - name: Upload Finished Dataset to GitHub Release
+    - name: Upload Dataset to GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v11.0.0-aria2-pass
-        name: SC-Depth Preprocessed Dataset (Aria2 Cracked)
+        tag_name: v13.0.0-final-crack
+        name: SC-Depth Preprocessed Dataset (OneDrive Personal Solved)
         draft: false
         prerelease: false
-        files: sc_depth_aria2_package.zip
+        files: ./dataset_download/sc_depth_dataset.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
